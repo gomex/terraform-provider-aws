@@ -50,6 +50,7 @@ This data source supports the following arguments:
 * `local_gateway_id` - (Optional) Local Gateway ID of the Route belonging to the Route Table.
 * `nat_gateway_id` - (Optional) NAT Gateway ID of the Route belonging to the Route Table.
 * `network_interface_id` - (Optional) Network Interface ID of the Route belonging to the Route Table.
+* `odb_network_arn` - (Optional) The Amazon Resource Name (ARN) of the ODB network.
 * `transit_gateway_id` - (Optional) EC2 Transit Gateway ID of the Route belonging to the Route Table.
 * `vpc_peering_connection_id` - (Optional) VPC Peering Connection ID of the Route belonging to the Route Table.
 

@@ -960,6 +960,58 @@ func TestAccVPCRoute_ipv6ToTransitGateway(t *testing.T) {
 	})
 }
 
+func TestAccVPCRoute_ipv6ToODB(t *testing.T) {
+	ctx := acctest.Context(t)
+	if testing.Short() {
+		t.Skip("skipping long-running test in short mode")
+	}
+
+	var route awstypes.Route
+	resourceName := "aws_route.test"
+	odbResourceName := "aws_odb_network.test"
+	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
+	destinationCidr := "::/0"
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
+		ErrorCheck:               acctest.ErrorCheck(t, names.EC2ServiceID),
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
+		CheckDestroy:             testAccCheckRouteDestroy(ctx),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccVPCRouteConfig_ipv6ODB(rName, destinationCidr),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckRouteExists(ctx, resourceName, &route),
+					resource.TestCheckResourceAttr(resourceName, "carrier_gateway_id", ""),
+					resource.TestCheckResourceAttr(resourceName, "core_network_arn", ""),
+					resource.TestCheckResourceAttr(resourceName, "destination_cidr_block", ""),
+					resource.TestCheckResourceAttr(resourceName, "destination_ipv6_cidr_block", destinationCidr),
+					resource.TestCheckResourceAttr(resourceName, "destination_prefix_list_id", ""),
+					resource.TestCheckResourceAttr(resourceName, "egress_only_gateway_id", ""),
+					resource.TestCheckResourceAttr(resourceName, "gateway_id", ""),
+					resource.TestCheckResourceAttr(resourceName, names.AttrInstanceID, ""),
+					resource.TestCheckResourceAttr(resourceName, "instance_owner_id", ""),
+					resource.TestCheckResourceAttr(resourceName, "local_gateway_id", ""),
+					resource.TestCheckResourceAttr(resourceName, "nat_gateway_id", ""),
+					resource.TestCheckResourceAttr(resourceName, names.AttrNetworkInterfaceID, ""),
+					resource.TestCheckResourceAttrPair(resourceName, "odb_network_arn", odbResourceName, "arn"),
+					resource.TestCheckResourceAttr(resourceName, "origin", string(awstypes.RouteOriginCreateRoute)),
+					resource.TestCheckResourceAttr(resourceName, names.AttrState, string(awstypes.RouteStateActive)),
+					resource.TestCheckResourceAttr(resourceName, names.AttrTransitGatewayID, ""),
+					resource.TestCheckResourceAttr(resourceName, names.AttrVPCEndpointID, ""),
+					resource.TestCheckResourceAttr(resourceName, "vpc_peering_connection_id", ""),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateIdFunc: testAccRouteImportStateIdFunc(resourceName),
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
 func TestAccVPCRoute_ipv4ToCarrierGateway(t *testing.T) {
 	ctx := acctest.Context(t)
 	var route awstypes.Route
@@ -4549,6 +4601,38 @@ resource "aws_route" "test" {
   destination_cidr_block = %[2]q
   route_table_id         = aws_route_table.test.id
   carrier_gateway_id     = aws_ec2_carrier_gateway.test.id
+}
+`, rName, destinationCidr)
+}
+
+func testAccVPCRouteConfig_ipv6ODB(rName, destinationCidr string) string {
+	return fmt.Sprintf(`
+resource "aws_vpc" "test" {
+  cidr_block = "10.1.0.0/16"
+
+  tags = {
+    Name = %[1]q
+  }
+}
+
+resource "aws_odb_network" "test" {
+  display_name                = %[1]q
+  availability_zone_id        = "use1-az6"
+  client_subnet_cidr          = "10.1.0.0/24"
+  backup_subnet_cidr          = "10.1.1.0/24"
+  s3_access                   = "DISABLED"
+  zero_etl_access             = "DISABLED"
+  delete_associated_resources = true
+}
+
+resource "aws_route_table" "test" {
+  vpc_id = aws_vpc.test.id
+}
+
+resource "aws_route" "test" {
+  route_table_id              = aws_route_table.test.id
+  destination_ipv6_cidr_block = %[2]q
+  odb_network_arn             = aws_odb_network.test.arn
 }
 `, rName, destinationCidr)
 }
